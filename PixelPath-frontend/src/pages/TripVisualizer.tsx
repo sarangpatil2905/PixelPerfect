@@ -1,305 +1,215 @@
-import { useEffect, useState } from "react";
-import {
-    MapContainer,
-    TileLayer,
-    Polyline,
-    Marker,
-    useMap
-} from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
-import axios from "axios";
-import debounce from "lodash.debounce";
+import { useState, useEffect } from "react";
+import Map2D from "@/components/2dMap";
+import Map3D from "@/components/3dMap";
+import SearchPanel from "@/components/SearchPanel";
 
-/* ---------------- MAP FOCUS ---------------- */
-
-const FocusMap = ({ position }: { position: LatLngExpression }) => {
-    const map = useMap();
-
-    useEffect(() => {
-        map.flyTo(position, 15, { duration: 0.8 });
-    }, [position]);
-
-    return null;
+type RoutePoint = {
+    lat: number;
+    lng: number;
+    name: string;
 };
 
-/* ---------------- MAIN COMPONENT ---------------- */
-
 const TripVisualizer = () => {
-    const [startQuery, setStartQuery] = useState("");
-    const [endQuery, setEndQuery] = useState("");
-    const [activeInput, setActiveInput] =
-        useState<"start" | "end" | null>(null);
+    const [mapMode, setMapMode] = useState<"2d" | "3d">("2d");
+    const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [currentPosition, setCurrentPosition] =
+        useState<[number, number] | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
 
-    const [startCoord, setStartCoord] = useState<any>(null);
-    const [endCoord, setEndCoord] = useState<any>(null);
-
-    const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
-    const [steps, setSteps] = useState<any[]>([]);
-    const [routeInfo, setRouteInfo] = useState<any>(null);
-
-    const [mode, setMode] =
-        useState<"driving" | "walking" | "cycling">("driving");
-
-    const [selectedStepIndex, setSelectedStepIndex] = useState(0);
-
-    const [suggestions, setSuggestions] = useState<any[]>([]);
-
-    /* ---------------- SEARCH ---------------- */
-
-    const searchLocation = async (query: string) => {
-        const res = await axios.get(
-            "https://nominatim.openstreetmap.org/search",
-            { params: { q: query, format: "json", limit: 6 } }
-        );
-        setSuggestions(res.data);
+    /* -------- ADD LOCATION FROM SEARCH -------- */
+    const addLocationFromSearch = (
+        lat: number,
+        lng: number,
+        name: string
+    ) => {
+        setRoutePoints((prev) => [...prev, { lat, lng, name }]);
     };
 
-    const debouncedSearch = debounce(searchLocation, 400);
-
-    useEffect(() => {
-        const query = activeInput === "start" ? startQuery : endQuery;
-
-        if (query.length > 2 && activeInput !== null) {
-            debouncedSearch(query);
-        } else {
-            setSuggestions([]);
-        }
-    }, [startQuery, endQuery, activeInput]);
-
-    /* ---------------- ROUTE ---------------- */
-
-    const getRoute = async () => {
-        if (!startCoord || !endCoord) return;
-
-        const res = await axios.get(
-            `https://router.project-osrm.org/route/v1/${mode}/${startCoord.lon},${startCoord.lat};${endCoord.lon},${endCoord.lat}`,
+    /* -------- MAP CLICK -------- */
+    const handleMapClick = (lat: number, lng: number) => {
+        setRoutePoints((prev) => [
+            ...prev,
             {
-                params: {
-                    overview: "full",
-                    geometries: "geojson",
-                    steps: true
-                }
+                lat,
+                lng,
+                name: `Custom Location ${prev.length + 1}`
             }
-        );
-
-        const route = res.data.routes[0];
-
-        const coords = route.geometry.coordinates.map(
-            (c: number[]) => [c[1], c[0]]
-        );
-
-        const formattedSteps = route.legs[0].steps.map((step: any) => ({
-            instruction:
-                step.maneuver.type +
-                (step.name ? ` onto ${step.name}` : ""),
-            distance: (step.distance / 1000).toFixed(2),
-            duration: Math.ceil(step.duration / 60),
-            location: [step.maneuver.location[1], step.maneuver.location[0]]
-        }));
-
-        setRouteCoords(coords);
-        setSteps(formattedSteps);
-        setRouteInfo(route);
-        setSelectedStepIndex(0);
+        ]);
     };
 
+    /* -------- PLAY / PAUSE ANIMATION -------- */
     useEffect(() => {
-        getRoute();
-    }, [startCoord, endCoord, mode]);
+        if (!isPlaying || routePoints.length === 0) return;
 
-    const currentPosition: LatLngExpression =
-        steps.length > 0
-            ? steps[selectedStepIndex].location
-            : startCoord
-                ? [startCoord.lat, startCoord.lon]
-                : [19.076, 72.8777];
+        const interval = setInterval(() => {
+            setCurrentIndex((prev) => {
+                const next = prev + 1;
 
-    const now = new Date();
-    const totalMinutes = routeInfo
-        ? Math.ceil(routeInfo.duration / 60)
-        : 0;
+                if (next >= routePoints.length) {
+                    clearInterval(interval);
+                    setIsPlaying(false);
+                    return prev;
+                }
 
-    const arrivalTime = new Date(
-        now.getTime() + totalMinutes * 60000
-    );
+                setCurrentPosition([
+                    routePoints[next].lat,
+                    routePoints[next].lng
+                ]);
 
-    const formatTime = (date: Date) =>
-        date.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
+                return next;
+            });
+        }, 800);
 
-    /* ---------------- UI ---------------- */
+        return () => clearInterval(interval);
+    }, [isPlaying, routePoints]);
 
     return (
-        <div className="h-screen w-full flex bg-slate-950">
+        <div className="h-screen w-full relative bg-[#f3f4f6] overflow-hidden">
 
-            {/* MAP */}
-            <div className="flex-1 relative">
-                <MapContainer
-                    center={currentPosition}
-                    zoom={14}
-                    style={{ height: "100%", width: "100%" }}
-                >
-                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                    />
-
-                    {routeCoords.length > 0 && (
-                        <Polyline
-                            positions={routeCoords}
-                            pathOptions={{ color: "#3b82f6", weight: 6 }}
-                        />
-                    )}
-
-                    <Marker position={currentPosition} />
-                    <FocusMap position={currentPosition} />
-                </MapContainer>
-            </div>
-
-            {/* SIDE PANEL */}
-            <div className="w-[420px] h-full bg-slate-900 text-white p-6 overflow-y-auto border-l border-slate-800">
+            {/* -------- FLOATING SIDEBAR -------- */}
+            <div className="absolute top-6 left-6 w-[280px] h-[calc(100%-3rem)] 
+                            bg-white/80 backdrop-blur-xl 
+                            rounded-2xl shadow-xl 
+                            flex flex-col z-[1000]">
 
                 {/* HEADER */}
-                <div className="mb-6 border-b border-slate-800 pb-5">
-                    <div className="text-xl font-semibold">
-                        PixelPath
-                    </div>
+                <div className="px-5 pt-5 pb-3">
+                    <h2 className="text-base font-semibold tracking-tight">
+                        Route Planner
+                    </h2>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                        Search or click map to build route
+                    </p>
                 </div>
 
                 {/* SEARCH */}
-                <div className="space-y-4">
-
-                    <input
-                        value={startQuery}
-                        onFocus={() => setActiveInput("start")}
-                        onChange={(e) => setStartQuery(e.target.value)}
-                        placeholder="From"
-                        className="w-full p-3 bg-slate-800 rounded-xl text-sm"
+                <div className="px-4 pb-3">
+                    <SearchPanel
+                        onSelectLocation={addLocationFromSearch}
                     />
-
-                    <input
-                        value={endQuery}
-                        onFocus={() => setActiveInput("end")}
-                        onChange={(e) => setEndQuery(e.target.value)}
-                        placeholder="To"
-                        className="w-full p-3 bg-slate-800 rounded-xl text-sm"
-                    />
-
-                    {suggestions.length > 0 && (
-                        <div className="bg-slate-800 rounded-2xl shadow-xl overflow-hidden">
-                            {suggestions.map((s, i) => {
-                                const parts = s.display_name.split(",");
-                                const title = parts[0];
-                                const subtitle = parts.slice(1, 3).join(", ");
-
-                                return (
-                                    <div
-                                        key={i}
-                                        onClick={() => {
-                                            const coord = {
-                                                lat: parseFloat(s.lat),
-                                                lon: parseFloat(s.lon)
-                                            };
-
-                                            if (activeInput === "start") {
-                                                setStartCoord(coord);
-                                                setStartQuery(title);
-                                            } else {
-                                                setEndCoord(coord);
-                                                setEndQuery(title);
-                                            }
-
-                                            setSuggestions([]);
-                                            setActiveInput(null);
-                                        }}
-                                        className="p-4 hover:bg-slate-700 cursor-pointer border-b border-slate-700 last:border-none"
-                                    >
-                                        <div className="text-sm font-medium">
-                                            {title}
-                                        </div>
-                                        <div className="text-xs text-gray-400 mt-1">
-                                            {subtitle}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* MODE */}
-                    <div className="flex gap-2">
-                        {["driving", "walking", "cycling"].map((m) => (
-                            <button
-                                key={m}
-                                onClick={() => setMode(m as any)}
-                                className={`flex-1 py-2 rounded-xl text-xs font-medium ${mode === m
-                                    ? "bg-blue-600"
-                                    : "bg-slate-800 hover:bg-slate-700"
-                                    }`}
-                            >
-                                {m.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
                 </div>
 
-                {/* ROUTE OVERVIEW */}
-                {routeInfo && (
-                    <div className="mt-8">
+                {/* TIMELINE */}
+                <div className="flex-1 overflow-y-auto px-4 pb-4">
+                    {routePoints.map((point, i) => (
+                        <div
+                            key={i}
+                            onClick={() => {
+                                setCurrentIndex(i);
+                                setCurrentPosition([
+                                    point.lat,
+                                    point.lng
+                                ]);
+                            }}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer mb-1 transition-all
+                                ${i === currentIndex
+                                    ? "bg-black text-white"
+                                    : "hover:bg-gray-100 text-gray-700"
+                                }`}
+                        >
+                            <div
+                                className={`w-2 h-2 rounded-full 
+                                    ${i === currentIndex
+                                        ? "bg-white"
+                                        : "bg-gray-400"
+                                    }`}
+                            />
 
-                        <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-                            Route Overview
-                        </div>
-
-                        <div className="text-lg font-semibold mb-4">
-                            {startQuery} → {endQuery}
-                        </div>
-
-                        <div className="bg-slate-800 rounded-2xl p-4 space-y-2 text-sm">
-                            <div>
-                                <span className="text-gray-400">Distance:</span>{" "}
-                                {(routeInfo.distance / 1000).toFixed(2)} km
-                            </div>
-                            <div>
-                                <span className="text-gray-400">Duration:</span>{" "}
-                                {totalMinutes} min
-                            </div>
-                            <div>
-                                <span className="text-gray-400">Depart:</span>{" "}
-                                {formatTime(now)}
-                            </div>
-                            <div>
-                                <span className="text-gray-400">Arrive:</span>{" "}
-                                {formatTime(arrivalTime)}
-                            </div>
-                        </div>
-
-                        {/* STEPS */}
-                        <div className="mt-6 space-y-4">
-                            {steps.map((step, i) => (
-                                <div
-                                    key={i}
-                                    onClick={() => setSelectedStepIndex(i)}
-                                    className={`p-4 rounded-2xl cursor-pointer transition ${i === selectedStepIndex
-                                        ? "bg-blue-600"
-                                        : "bg-slate-800 hover:bg-slate-700"
-                                        }`}
-                                >
-                                    <div className="text-xs text-gray-300 mb-2 uppercase tracking-wide">
-                                        Step {i + 1}
-                                    </div>
-                                    <div className="text-sm font-medium">
-                                        {step.instruction}
-                                    </div>
-                                    <div className="text-xs text-gray-400 mt-2">
-                                        {step.distance} km • {step.duration} min
-                                    </div>
+                            <div className="flex-1 overflow-hidden">
+                                <div className="text-sm font-medium truncate">
+                                    {point.name}
                                 </div>
-                            ))}
+                                <div className="text-[11px] opacity-70 truncate">
+                                    {point.lat.toFixed(4)}, {point.lng.toFixed(4)}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    ))}
 
+                    {routePoints.length === 0 && (
+                        <p className="text-xs text-gray-400 mt-4">
+                            No locations added yet.
+                        </p>
+                    )}
+                </div>
+
+                {/* PLAY / PAUSE */}
+                <div className="px-4 pb-2">
+                    <button
+                        onClick={() => {
+                            if (!isPlaying) {
+                                if (currentIndex >= routePoints.length - 1) {
+                                    setCurrentIndex(0);
+                                    if (routePoints[0]) {
+                                        setCurrentPosition([
+                                            routePoints[0].lat,
+                                            routePoints[0].lng
+                                        ]);
+                                    }
+                                }
+                            }
+                            setIsPlaying((prev) => !prev);
+                        }}
+                        disabled={routePoints.length === 0}
+                        className={`w-full py-2 text-sm rounded-lg transition
+                            ${routePoints.length === 0
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                : isPlaying
+                                    ? "bg-gray-800 text-white"
+                                    : "bg-black text-white hover:opacity-90"
+                            }`}
+                    >
+                        {isPlaying ? "Pause" : "Play"}
+                    </button>
+                </div>
+
+                {/* CLEAR BUTTON */}
+                <div className="p-4 pt-0">
+                    <button
+                        onClick={() => {
+                            setRoutePoints([]);
+                            setCurrentPosition(null);
+                            setCurrentIndex(0);
+                            setIsPlaying(false);
+                        }}
+                        className="w-full py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                        Clear Route
+                    </button>
+                </div>
+            </div>
+
+            {/* -------- MAP AREA -------- */}
+            <div className="h-full w-full">
+                {/* MAP MODE SWITCH */}
+                <div className="absolute top-6 right-6 z-[1000]">
+                    <button
+                        onClick={() =>
+                            setMapMode((prev) =>
+                                prev === "2d" ? "3d" : "2d"
+                            )
+                        }
+                        className="px-4 py-2 bg-black text-white rounded-xl text-sm shadow-lg"
+                    >
+                        Switch to {mapMode === "2d" ? "3D" : "2D"}
+                    </button>
+                </div>
+
+                {mapMode === "2d" ? (
+                    <Map2D
+                        routeCoords={routePoints.map((p) => [p.lat, p.lng])}
+                        activePosition={currentPosition}
+                        onMapClick={handleMapClick}
+                    />
+                ) : (
+                    <Map3D
+                        routeCoords={routePoints.map((p) => [p.lat, p.lng])}
+                        center={currentPosition}
+                        activePosition={currentPosition}
+                        onMapClick={handleMapClick}
+                    />
+                )}
             </div>
         </div>
     );

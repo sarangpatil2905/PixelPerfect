@@ -106,18 +106,17 @@ export default function Hero() {
             {/* LEFT TEXT SECTION */}
             <div className="flex flex-col gap-6 max-w-lg z-100 ml-20 mt-60">
                 <h1 className="text-5xl font-semibold tracking-tight leading-tight text-gray-900">
-                    Inventory that Works <br />The Way You Do.
+                    See Your Journey <br />Not Just the Route.
                 </h1>
 
                 <p className="text-lg text-gray-600 leading-relaxed">
-                    StockMaster helps you track receipts, deliveries, transfers and ledger updates —
-                    all in one clean and minimal interface.
+                    Your trip route, visualized. <br /> PixelPath transforms static paths into interactive 2D journeys you can explore and replay.
                 </p>
 
                 <ul className="text-gray-700 text-[1rem] space-y-2">
-                    <li>• Real-time warehouse syncing</li>
-                    <li>• Automatic stock ledger entries</li>
-                    <li>• Smart delivery + receipt workflows</li>
+                    <li>• Interactive 2D route visualization</li>
+                    <li>• Clickable segment insights & transfer highlights</li>
+                    <li>• Smart timeline with real-time synchronization</li>
                 </ul>
 
                 <div className="flex gap-4 mt-4">

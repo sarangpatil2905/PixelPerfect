@@ -16,21 +16,15 @@ export default function Landing() {
                         <span className="w-2.5 h-2.5 rounded-full bg-[#FFD166]"></span>
                         <span className="w-2.5 h-2.5 rounded-full bg-[#06D6A0]"></span>
                         <span className="w-2.5 h-2.5 rounded-full bg-[#EF476F]"></span>
-                        <span className="">StockMaster</span>
+                        <span className="">PixelPath</span>
                     </div>
 
                     {/* Nav Items */}
                     <div className="flex items-center gap-8 text-[14px] font-medium text-gray-700">
 
                         <button className="hover:text-black transition">Features</button>
-                        <button className="hover:text-black transition">Pricing</button>
+                        <button className="hover:text-black transition">Contacts</button>
 
-                        <div className="flex items-center gap-1">
-                            <button className="hover:text-black transition">Docs</button>
-                            <span className="px-2 py-0.5 rounded-full bg-[#E6F7EF] text-[#3CA87C] text-[10px] font-semibold">
-                                NEW
-                            </span>
-                        </div>
 
                         <button
                             className="hover:text-black transition"
