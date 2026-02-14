@@ -34,7 +34,7 @@ export default function Landing() {
 
                         <button
                             className="hover:text-black transition"
-                            onClick={() => navigate("/Auth")}
+                            onClick={() => navigate("/login")}
                         >
                             Login
                         </button>
