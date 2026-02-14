@@ -1,4 +1,4 @@
-const TripVisualizer = () => {
+const Mytrips = () => {
 
     return (
         <>
@@ -6,4 +6,4 @@ const TripVisualizer = () => {
     );
 };
 
-export default TripVisualizer;
+export default Mytrips;
