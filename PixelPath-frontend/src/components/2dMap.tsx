@@ -14,7 +14,6 @@ type Map2DProps = {
     onMapClick?: (lat: number, lng: number) => void;
 };
 
-const MAPTILER_KEY = "U8efYCwQsX5Vp4ulQpjR";
 
 /* ---- CLICK HANDLER ---- */
 const ClickHandler = ({ onMapClick }: { onMapClick?: any }) => {
