@@ -1,0 +1,117 @@
+
+/* Background image wrapper */
+
+.main {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* Scene containers */
+.scene1, .scene2, .scene3, .scene4,
+.dumy1, .dumy2, .dumy3, .dumy4,
+.dumy5, .dumy6, .dumy7, .dumy8,
+.dumy9, .dumy10,.dumy11,.dumy12,.dumy13,.dumy14{
+  width: 1000px;
+  height: 1000px;
+  position: absolute;
+  z-index: 2;
+  transform-style: preserve-3d;
+}
+
+.scene1 { left: 664px; }
+.scene2 { left: 1047.5px; top: 247px; }
+.scene3 { left: 343px; top: 294px; }
+.scene4 { left: 726px; top: 540px; }
+
+.dumy1{ left: 281px ; top :-246px;}
+.dumy2{ left: 986px ; top :-293px;}
+.dumy3{ left: -40.1px ; top : 47.2px;}
+.dumy4{ left: 21px ; top : 587.5px; z-index: 4;}
+.dumy5{ left: -424px ; top :-198.6px; z-index: 0;}
+.dumy6{ left: -362px ; top : 340.8px; z-index: 3;}
+.dumy7{ left: 1369px ; top : -47.1px; z-index: 2;}
+.dumy8{ left: 1431px ; top : 493px; z-index: 3;}
+.dumy9{ left: 404px ; top : 834px; z-index: 4;}
+.dumy10{ left: 1109px ; top : 787px; z-index: 3;}
+.dumy11 { left: 664px; top:0px}
+.dumy12 { left: 1047.5px; top: 247px; }
+.dumy13 { left: 343px; top: 294px; }
+.dumy14 { left: 726px; top: 540px; }
+
+/* Cuboid container */
+.cuboid {
+  width: 500px;
+  height: 500px;
+  position: absolute;
+  top: 50px;
+  left: 50px;
+  transform-style: preserve-3d;
+  transition: transform 1s cubic-bezier(0.36, 1, 0.36, 1);
+  transform: rotateX(-50deg) rotateY(50deg);
+}
+
+#cuboid1{ transform: rotateX(-50deg) rotateY(140deg); }
+#cuboid3{ transform: rotateX(-50deg) rotateY(230deg); }
+#cuboid4{ transform: rotateX(-50deg) rotateY(320deg); }
+
+/* Shared face styles */
+.face {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  font-weight: bold;
+  box-sizing: border-box;
+  border: 1px solid #e0dada47;
+}
+
+.top, .bottom {
+  background-color: #fefeff;
+  background-image: radial-gradient(circle, #c1a4df2d 2.5px, transparent 2.5px);
+  background-size: 100px 100px;
+}
+
+/* Side faces */
+.front, .back, .right, .left {
+  height: 90px;
+  background: linear-gradient(to right, #d1baf7, #fff9ff);
+}
+
+.face.flipped {
+  background: linear-gradient(to left, #dfcff8, #ffedff);
+}
+
+/* 3D face positioning */
+.front  { transform: translateZ(250px); }
+.back   { transform: rotateY(180deg) translateZ(250px); }
+.right  { transform: rotateY(90deg) translateZ(250px); }
+.left   { transform: rotateY(-90deg) translateZ(250px); }
+.top    { transform: rotateX(90deg) translateZ(250px); }
+.bottom { transform: rotateX(-90deg) translateZ(-160px); }
+
+.circle-quad {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(229, 231, 235, 0.6); /* same as bg-gray-200/60 */
+  border-radius: 50%;
+  top: -50%;
+  left: -50%;
+}
+
+
+
+.inner-circle-quad {
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  background: #fefeff; /* same as bg-gray-200/60 */
+  border-radius: 50%;
+  top: -30%;
+  left: -30%;
+}
+
