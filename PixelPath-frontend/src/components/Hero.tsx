@@ -100,11 +100,11 @@ export default function Hero() {
     }, []);
 
     return (
-        <div className="w-full min-h-screen flex  relative bg-[#FFD2FE] px-10 z-0">
+        <div className="w-full min-h-screen flex  relative bg-[#FFD2FE] px-10 z-0 -top-40">
 
 
             {/* LEFT TEXT SECTION */}
-            <div className="flex flex-col gap-6 max-w-lg z-100 ml-20 mt-30">
+            <div className="flex flex-col gap-6 max-w-lg z-100 ml-20 mt-60">
                 <h1 className="text-5xl font-semibold tracking-tight leading-tight text-gray-900">
                     Inventory that Works <br />The Way You Do.
                 </h1>
