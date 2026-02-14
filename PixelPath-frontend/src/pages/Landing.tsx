@@ -41,8 +41,7 @@ export default function Landing() {
                         </button>
 
                         {/* Menu Capsule */}
-                        <button c
-                            lassName="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100 transition flex items-center gap-2">
+                        <button className="px-4 py-2 rounded-full border border-gray-300 hover:bg-gray-100 transition flex items-center gap-2">
                             <span className="w-5 h-0.5 bg-gray-700"></span>
                             <span className="w-5 h-0.5 bg-gray-700"></span>
                         </button>
@@ -57,7 +56,7 @@ export default function Landing() {
 
 
             < footer className="w-full bg-[#252525] border-t p-8 border-[rgba(255,255,255,0.1)]" >
-                <div className="max-w-[1300px] mx-auto px-6  grid grid-cols-4 gap-24 text-sm">
+                <div className="max-w-325 mx-auto px-6  grid grid-cols-4 gap-24 text-sm">
 
                     {/* Company */}
                     <div>
