@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import "./style.css";
 
 export default function Hero() {
+
+    const navigate = useNavigate();
     const cuboidsRef = useRef<HTMLDivElement[]>([]);
     const scenesRef = useRef<HTMLDivElement[]>([]);
     const quadrantMap = ["top-left", "top-right", "bottom-left", "bottom-right"];
@@ -120,7 +123,9 @@ export default function Hero() {
                 </ul>
 
                 <div className="flex gap-4 mt-4">
-                    <button className="px-6 py-3 rounded-md bg-black text-white shadow-sm hover:bg-gray-900 transition">
+                    <button
+                        onClick={() => navigate("/login")}
+                        className="px-6 py-3 rounded-md bg-black text-white shadow-sm hover:bg-gray-900 transition">
                         Get Started
                     </button>
                     <button className="px-6 py-3 rounded-md border border-gray-300 hover:bg-gray-100 transition">
