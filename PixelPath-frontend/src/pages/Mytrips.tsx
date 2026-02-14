@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
     MapContainer,
     TileLayer,
@@ -21,7 +21,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-/* ---------------- SAMPLE TRIPS ---------------- */
+/* ---------------- TYPES ---------------- */
 
 type Place = {
     id: string;
@@ -37,6 +37,8 @@ type Trip = {
     distanceKm: number;
     places: Place[];
 };
+
+/* ---------------- SAMPLE TRIPS ---------------- */
 
 const trips: Trip[] = [
     {
@@ -67,11 +69,9 @@ const trips: Trip[] = [
 
 const FocusMap = ({ position }: { position: LatLngExpression }) => {
     const map = useMap();
-
     useEffect(() => {
-        map.flyTo(position, 13, { duration: 0.8 });
+        map.flyTo(position, 14, { duration: 0.8 });
     }, [position]);
-
     return null;
 };
 
@@ -79,84 +79,90 @@ const FocusMap = ({ position }: { position: LatLngExpression }) => {
 
 const MyTrips = () => {
     const [selectedTrip, setSelectedTrip] = useState<Trip | null>(trips[0]);
-
-    const [mode, setMode] = useState<"driving" | "walking" | "cycling">(
-        "driving"
-    );
-
+    const [realRoute, setRealRoute] = useState<[number, number][]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [playing, setPlaying] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const routePath: [number, number][] =
-        selectedTrip?.places.map((p) => [p.lat, p.lng]) || [];
+    /* ---------------- FETCH ROUTE ---------------- */
 
-    const timelinePoints: LatLngExpression[] = routePath;
-    const currentPosition =
-        timelinePoints[currentIndex] || [19.076, 72.8777];
+    useEffect(() => {
+        if (!selectedTrip || selectedTrip.places.length < 2) {
+            setRealRoute([]);
+            return;
+        }
 
-    /* ---- ROUTE INFO ---- */
+        const fetchRoute = async () => {
+            try {
+                const coords = selectedTrip.places
+                    .map(p => `${p.lng},${p.lat}`)
+                    .join(";");
 
-    const distanceKm = selectedTrip?.distanceKm || 0;
+                const res = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
+                );
 
-    const speedMap = {
-        driving: 50,
-        cycling: 18,
-        walking: 5,
-    };
+                const data = await res.json();
+                const geometry = data.routes?.[0]?.geometry?.coordinates;
 
-    const speed = speedMap[mode];
-    const durationMinutes = Math.ceil((distanceKm / speed) * 60);
+                if (geometry) {
+                    const converted = geometry.map(
+                        (c: [number, number]) => [c[1], c[0]]
+                    );
+                    setRealRoute(converted);
+                    setCurrentIndex(0);
+                }
+            } catch (err) {
+                console.error("Routing error:", err);
+            }
+        };
 
-    const now = new Date();
-    const arrivalTime = new Date(
-        now.getTime() + durationMinutes * 60000
-    );
-
-    const formatTime = (date: Date) =>
-        date.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        fetchRoute();
+    }, [selectedTrip]);
 
     /* ---------------- PLAYBACK ---------------- */
 
     useEffect(() => {
-        if (playing && timelinePoints.length > 0) {
+        if (playing && realRoute.length > 0) {
             intervalRef.current = setInterval(() => {
-                setCurrentIndex((prev) => {
-                    if (prev < timelinePoints.length - 1) {
-                        return prev + 1;
-                    } else {
-                        setPlaying(false);
-                        return prev;
-                    }
+                setCurrentIndex(prev => {
+                    if (prev < realRoute.length - 1) return prev + 1;
+                    setPlaying(false);
+                    return prev;
                 });
-            }, 1200);
+            }, 40);
         }
 
         return () => {
-            if (intervalRef.current)
-                clearInterval(intervalRef.current);
+            if (intervalRef.current) clearInterval(intervalRef.current);
         };
-    }, [playing, timelinePoints.length]);
+    }, [playing, realRoute.length]);
 
     const togglePlayback = () => {
-        if (currentIndex === timelinePoints.length - 1) {
+        if (currentIndex === realRoute.length - 1) {
             setCurrentIndex(0);
         }
-        setPlaying((prev) => !prev);
+        setPlaying(prev => !prev);
     };
 
-    const steps =
-        selectedTrip?.places.map((p) => p.name) || [];
+    const progress = useMemo(() => {
+        if (!realRoute.length) return 0;
+        return Math.round(
+            (currentIndex / (realRoute.length - 1)) * 100
+        );
+    }, [currentIndex, realRoute.length]);
+
+    const currentPosition =
+        realRoute[currentIndex] || [19.076, 72.8777];
+
+    /* ---------------- UI ---------------- */
 
     return (
         <div className="h-screen w-full bg-gray-100 p-4">
             <div className="h-full w-full flex gap-4">
 
-                {/* FLOATING SIDEBAR */}
-                <div className="w-1/3 bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-6 overflow-y-auto">
+                {/* SIDEBAR */}
+                <div className="w-1/3 bg-white rounded-2xl shadow-xl border p-6 overflow-y-auto">
 
                     <h2 className="text-lg font-semibold mb-6">
                         My Trips
@@ -167,12 +173,11 @@ const MyTrips = () => {
                             key={trip.id}
                             onClick={() => {
                                 setSelectedTrip(trip);
-                                setCurrentIndex(0);
                                 setPlaying(false);
                             }}
-                            className={`cursor-pointer bg-white rounded-xl p-4 mb-4 transition-all ${selectedTrip?.id === trip.id
-                                ? "ring-2 ring-black shadow-md"
-                                : "hover:shadow-md"
+                            className={`cursor-pointer rounded-xl p-4 mb-4 transition-all ${selectedTrip?.id === trip.id
+                                    ? "ring-2 ring-black shadow-md"
+                                    : "hover:shadow-md"
                                 }`}
                         >
                             <h3 className="font-semibold">
@@ -184,162 +189,124 @@ const MyTrips = () => {
                         </div>
                     ))}
 
+                    {/* PLAY BUTTON */}
+                    <button
+                        onClick={togglePlayback}
+                        className="w-full bg-black text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2"
+                    >
+                        {playing ? <Pause size={18} /> : <Play size={18} />}
+                        {playing ? "Pause Route" : "Play Route"}
+                    </button>
+
+                    {/* -------- PATH DETAILS -------- */}
                     {selectedTrip && (
-                        <div className="mt-6 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                        <div className="mt-6 bg-gray-50 rounded-xl p-4 space-y-4 border">
 
-                            {/* HEADER */}
-                            <div className="px-6 py-3 border-b bg-gray-50 flex justify-between items-center">
+                            <div className="text-sm space-y-2">
                                 <div>
-                                    <h3 className="text-lg font-semibold">
-                                        {selectedTrip.title}
-                                    </h3>
-                                    <p className="text-sm text-gray-500">
-                                        Interactive Route Timeline
-                                    </p>
+                                    Distance: {selectedTrip.distanceKm} km
                                 </div>
-
-                                <button
-                                    onClick={togglePlayback}
-                                    className="p-2 rounded-full hover:bg-gray-200 transition"
-                                >
-                                    {playing ? (
-                                        <Pause className="w-5 h-5" />
-                                    ) : (
-                                        <Play className="w-5 h-5" />
-                                    )}
-                                </button>
+                                <div>
+                                    Stops: {selectedTrip.places.length}
+                                </div>
+                                <div>
+                                    Progress: {progress}%
+                                </div>
                             </div>
 
-                            {/* CONTENT */}
-                            <div className="p-4 space-y-4">
+                            {/* Progress Bar */}
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="bg-black h-2 rounded-full transition-all"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
 
-                                {/* MODE SWITCH */}
-                                <div className="flex gap-2 text-xs">
-                                    {["driving", "walking", "cycling"].map((m) => (
-                                        <button
-                                            key={m}
-                                            onClick={() => setMode(m as any)}
-                                            className={`flex-1 py-2 rounded-lg font-medium transition ${mode === m
-                                                ? "bg-black text-white"
-                                                : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                                                }`}
-                                        >
-                                            {m.toUpperCase()}
-                                        </button>
-                                    ))}
-                                </div>
+                            {/* Stops Timeline */}
+                            <div>
+                                <h4 className="text-sm font-semibold mb-3">
+                                    Route Stops
+                                </h4>
 
-                                {/* SUMMARY */}
-                                <div className="bg-gray-50 rounded-xl p-3 border text-sm space-y-1.5">
-                                    <div className="flex justify-between">
-                                        <span>Distance</span>
-                                        <span>{distanceKm} km</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Duration</span>
-                                        <span>{durationMinutes} min</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Avg Speed</span>
-                                        <span>{speed} km/h</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Arrival</span>
-                                        <span>{formatTime(arrivalTime)}</span>
-                                    </div>
-                                </div>
+                                <div className="space-y-3">
+                                    {selectedTrip.places.map(
+                                        (place, index) => {
+                                            const stopProgress =
+                                                Math.round(
+                                                    (index /
+                                                        (selectedTrip
+                                                            .places
+                                                            .length -
+                                                            1)) *
+                                                    (realRoute.length -
+                                                        1)
+                                                );
 
-                                {/* TIMELINE */}
-                                <div>
-                                    <h3 className="text-sm font-semibold mb-4">
-                                        Timeline
-                                    </h3>
-
-                                    <div className="pl-8">
-                                        {steps.map((step, i) => {
-                                            const isStart = i === 0;
-                                            const isEnd =
-                                                i === steps.length - 1;
                                             const isActive =
-                                                i === currentIndex;
+                                                currentIndex >=
+                                                stopProgress;
 
                                             return (
                                                 <div
-                                                    key={i}
-                                                    onClick={() => {
-                                                        setCurrentIndex(i);
-                                                        setPlaying(false);
-                                                    }}
-                                                    className="relative mb-8 last:mb-0 cursor-pointer"
+                                                    key={place.id}
+                                                    className="flex items-start gap-3"
                                                 >
-                                                    <div className="absolute left-0 top-1 flex flex-col items-center">
-                                                        <div
-                                                            className={`w-4 h-4 rounded-full shadow-md ${isStart
-                                                                ? "bg-green-600"
-                                                                : isEnd
-                                                                    ? "bg-red-600"
-                                                                    : isActive
-                                                                        ? "bg-blue-600"
-                                                                        : "bg-black"
-                                                                }`}
-                                                        />
-                                                        {i !==
-                                                            steps.length -
-                                                            1 && (
-                                                                <div className="w-[2px] h-8 bg-gray-300 mt-1"></div>
-                                                            )}
-                                                    </div>
-
                                                     <div
-                                                        className={`ml-8 text-sm ${isActive ||
-                                                            isEnd
-                                                            ? "text-blue-600 font-semibold"
-                                                            : "text-gray-700"
+                                                        className={`w-3 h-3 mt-1 rounded-full ${isActive
+                                                                ? "bg-black"
+                                                                : "bg-gray-300"
                                                             }`}
-                                                    >
-                                                        {step}
+                                                    />
+
+                                                    <div>
+                                                        <div
+                                                            className={`text-sm font-medium ${isActive
+                                                                    ? "text-black"
+                                                                    : "text-gray-500"
+                                                                }`}
+                                                        >
+                                                            {place.name}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400">
+                                                            {place.lat.toFixed(
+                                                                3
+                                                            )}
+                                                            ,{" "}
+                                                            {place.lng.toFixed(
+                                                                3
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
-                                        })}
-                                    </div>
+                                        }
+                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {/* FLOATING MAP */}
-                <div className="w-2/3 h-full rounded-2xl overflow-hidden shadow-xl border border-gray-200">
+                {/* MAP */}
+                <div className="w-2/3 h-full rounded-2xl overflow-hidden shadow-xl border">
                     <MapContainer
                         center={[19.076, 72.8777]}
-                        zoom={5}
+                        zoom={13}
                         style={{ height: "100%", width: "100%" }}
                     >
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
 
-                        {!selectedTrip && (
-                            <>
-                                <Marker position={[19.076, 72.8777]} />
-                                <Marker position={[15.2993, 74.124]} />
-                            </>
-                        )}
-
-                        {selectedTrip && (
+                        {realRoute.length > 0 && (
                             <>
                                 <Polyline
-                                    positions={routePath}
+                                    positions={realRoute}
                                     pathOptions={{
                                         color: "#2563eb",
                                         weight: 6,
                                     }}
                                 />
-
                                 <Marker position={currentPosition} />
-
-                                <FocusMap
-                                    position={currentPosition}
-                                />
+                                <FocusMap position={currentPosition} />
                             </>
                         )}
                     </MapContainer>
